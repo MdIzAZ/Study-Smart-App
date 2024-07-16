@@ -10,7 +10,7 @@ interface SubjectRepository {
 
     suspend fun upsertSubject (subject: Subject)
 
-    suspend fun deleteSubject (subject: Subject)
+    suspend fun deleteSubject (subjectId: Int)
 
     suspend fun getSubjectById(id: Int): Subject?
 

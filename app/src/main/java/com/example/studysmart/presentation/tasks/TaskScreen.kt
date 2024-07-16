@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
@@ -22,11 +21,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.studysmart.list
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.studysmart.presentation.components.DeleteDialog
 import com.example.studysmart.presentation.components.PriorityButton
 import com.example.studysmart.presentation.components.RelatedToSubjectSection
@@ -45,9 +47,13 @@ import com.example.studysmart.presentation.components.SubjectListBottomSheet
 import com.example.studysmart.presentation.components.TaskCheckBox
 import com.example.studysmart.presentation.components.TaskDatePicker
 import com.example.studysmart.util.Priority
+import com.example.studysmart.util.SnackBarEvent
 import com.example.studysmart.util.toActualDateInString
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -61,24 +67,22 @@ data class TaskScreenNavArgs(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskScreen(
-    navigator: DestinationsNavigator
+    navigator: DestinationsNavigator,
 ) {
-
     //viewmodel
     val viewModel = hiltViewModel<TaskViewModel>()
+    val onEvent = viewModel::onEvent
+
+    //states
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     //states for bottom sheet
     var isBottomSheetOpened by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
-    var selectedSubject by remember { mutableStateOf("English") }
 
     //states for delete Dialog
     var isDeleteDialogOpened by remember { mutableStateOf(false) }
-
-    //states for two text fields
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
 
     //states for date picker
     var isDatePickerOpened by remember { mutableStateOf(false) }
@@ -86,48 +90,73 @@ fun TaskScreen(
         initialSelectedDateMillis = Instant.now().toEpochMilli()
     )
 
+    //snack bar
+    val snackBarEvent: SharedFlow<SnackBarEvent> = viewModel.snackBarEventFlow
+    val snackBarHostState = remember { SnackbarHostState() }
 
+    //launched effect
+    LaunchedEffect(key1 = true) {
+        snackBarEvent.collectLatest { event ->
+            when (event) {
+                is SnackBarEvent.ShowSnackBar -> {
+                    snackBarHostState.showSnackbar(message = event.msg, duration = event.duration)
+                }
+                SnackBarEvent.NavigateUp -> TODO()
+            }
+        }
+    }
 
 
     DeleteDialog(
         isOpened = isDeleteDialogOpened,
         title = "Delete Task?",
         bodyText = "Are you sure want to delete?",
-        onDismissRequest = { isDeleteDialogOpened = false }) {
-
-    }
+        onDismissRequest = { isDeleteDialogOpened = false },
+        onConfirmButtonClick = {
+            onEvent(TaskEvent.DeleteTask)
+            isDeleteDialogOpened = false
+        }
+    )
 
     TaskDatePicker(
         state = datePickerState,
         isOpened = isDatePickerOpened,
-        onConfirmButtonClick = { isDatePickerOpened = true },
-        onDismissButtonClick = { isDatePickerOpened = false }
+        onConfirmButtonClick = {
+            onEvent(TaskEvent.OnDateChange(datePickerState.selectedDateMillis))
+            isDatePickerOpened = false
+        },
+        onDismissButtonClick = {
+            isDatePickerOpened = false
+        },
+        onDismissRequest = {
+            isDatePickerOpened = false
+        }
     )
 
     SubjectListBottomSheet(
         sheetState = bottomSheetState,
         isOpened = isBottomSheetOpened,
-        subjects = list,
-        onSubjectClicked = {subject->
-            scope.launch {bottomSheetState.hide()}.invokeOnCompletion {
-                selectedSubject = subject.name
-                isBottomSheetOpened = false
+        subjects = state.subjects,
+        onSubjectClicked = { subject ->
+            scope.launch { bottomSheetState.hide() }.invokeOnCompletion {
+                if (!bottomSheetState.isVisible) isBottomSheetOpened = false
             }
+            onEvent(TaskEvent.OnRelatedSubjectSelect(subject))
         },
         onDismissRequest = { isBottomSheetOpened = false }
     )
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackBarHostState) },
         topBar = {
             TaskScreenTopAppBar(
-                isTaskExists = true,
-                isCompleted = false,
-                checkboxBorderColor = Color.Red,
+                isTaskExists = state.currentTaskId != null,
+                isCompleted = state.isTaskCompleted,
+                checkboxBorderColor = state.priority.color,
                 onBackButtonClick = { navigator.navigateUp() },
-                onDeleteClick = { isDeleteDialogOpened = true }
-            ) {
-
-            }
+                onDeleteClick = { isDeleteDialogOpened = true },
+                onCheckBoxClick = { onEvent(TaskEvent.OnIsCompleteChange) }
+            )
         }
     ) { innerPadding ->
         Column(
@@ -139,16 +168,16 @@ fun TaskScreen(
         ) {
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
-                value = title,
-                onValueChange = { title = it },
+                value = state.title,
+                onValueChange = { onEvent(TaskEvent.OnTitleChange(it)) },
                 label = { Text(text = "Title") },
                 singleLine = true,
             )
             Spacer(modifier = Modifier.height(10.dp))
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
-                value = description,
-                onValueChange = { description = it },
+                value = state.dscp,
+                onValueChange = { onEvent(TaskEvent.OnDescriptionChange(it)) },
                 label = { Text(text = "Description") }
             )
             Spacer(modifier = Modifier.height(20.dp))
@@ -159,7 +188,7 @@ fun TaskScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = datePickerState.selectedDateMillis.toActualDateInString(),
+                    text = state.dueDate.toActualDateInString(),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 IconButton(onClick = { isDatePickerOpened = true }) {
@@ -175,23 +204,26 @@ fun TaskScreen(
                         modifier = Modifier.weight(1f),
                         label = priority.title,
                         backgroundColor = priority.color,
-                        borderColor = if (priority == Priority.MEDIUM) MaterialTheme.colorScheme.onBackground
+                        borderColor = if (priority == state.priority) MaterialTheme.colorScheme.onBackground
                         else Color.Transparent,
-                        labelColor = if (priority == Priority.MEDIUM) MaterialTheme.colorScheme.primary.copy(
+                        labelColor = if (priority == state.priority) MaterialTheme.colorScheme.primary.copy(
                             alpha = .7f
                         )
                         else Color.Transparent,
                     ) {
-//                        onclick
+                        onEvent(TaskEvent.OnPriorityChange(priority))
                     }
                 }
             }
             Spacer(modifier = Modifier.height(30.dp))
-            RelatedToSubjectSection(selectedSubject = selectedSubject) {
+            RelatedToSubjectSection(selectedSubject = state.relatedToSubject.toString()) {
                 isBottomSheetOpened = true
             }
             Button(
-                onClick = {  },
+                onClick = {
+                    onEvent(TaskEvent.SaveTask)
+                    navigator.navigateUp()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 20.dp)
@@ -201,47 +233,6 @@ fun TaskScreen(
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -264,7 +255,7 @@ private fun TaskScreenTopAppBar(
         actions = {
             if (isTaskExists) {
                 TaskCheckBox(isCompleted = isCompleted, borderColor = checkboxBorderColor) {
-                    onCheckBoxClick.invoke()
+                    onCheckBoxClick()
                 }
                 IconButton(onClick = onDeleteClick) {
                     Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Task")

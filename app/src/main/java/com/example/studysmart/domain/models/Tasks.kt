@@ -8,7 +8,7 @@ data class Tasks(
 
     val title: String,
     val description: String,
-    val dueDate: Float,
+    val dueDate: Long,
     val priority: Int,
     val relatedSubject: String,
     val isCompleted: Boolean,

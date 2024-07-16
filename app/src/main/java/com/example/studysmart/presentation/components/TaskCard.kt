@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.studysmart.domain.models.Tasks
 import com.example.studysmart.util.Priority
+import com.example.studysmart.util.toActualDateInString
 
 @Composable
 fun TaskCard(
@@ -52,7 +53,7 @@ fun TaskCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${tasks.dueDate}",
+                    text = tasks.dueDate.toActualDateInString(),
                     style = MaterialTheme.typography.bodySmall
                 )
             }

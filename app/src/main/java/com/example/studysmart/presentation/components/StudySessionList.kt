@@ -24,8 +24,7 @@ fun LazyListScope.studySessionList(
     sectionTitle: String,
     sessions: List<Session>,
     emptyListText: String,
-    onDeleteIconClick: (Session) -> Unit,
-    onSessionCardClick:()->Unit
+    onDeleteIconClick: (Session) -> Unit
 ) {
     item {
         Text(
@@ -63,6 +62,7 @@ fun LazyListScope.studySessionList(
             modifier = Modifier.padding(12.dp, 4.dp),
             onDeleteIconClick = {
                 onDeleteIconClick(it)
-            })
+            }
+        )
     }
 }

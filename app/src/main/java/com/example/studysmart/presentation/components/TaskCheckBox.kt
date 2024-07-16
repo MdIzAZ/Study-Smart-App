@@ -2,6 +2,7 @@ package com.example.studysmart.presentation.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -17,7 +18,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun TaskCheckBox(
-    isCompleted: Boolean,
+    isCompleted: Boolean = true,
     borderColor: Color,
     onCheckBoxClick: () -> Unit,
 ) {
@@ -25,7 +26,10 @@ fun TaskCheckBox(
         modifier = Modifier
             .size(25.dp)
             .clip(CircleShape)
-            .border(2.dp, borderColor, CircleShape),
+            .border(2.dp, borderColor, CircleShape)
+            .clickable {
+                onCheckBoxClick()
+            },
         contentAlignment = Alignment.Center
     ) {
         AnimatedVisibility(visible = isCompleted) {

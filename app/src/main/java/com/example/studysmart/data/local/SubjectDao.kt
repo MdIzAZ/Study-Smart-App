@@ -13,8 +13,8 @@ interface SubjectDao {
     @Upsert
     suspend fun upsertSubject (subject: Subject)
 
-    @Delete
-    suspend fun deleteSubject (subject: Subject)
+    @Query("delete from subject where subjectId = :subjectId")
+    suspend fun deleteSubject (subjectId: Int)
 
     @Query("SELECT * FROM SUBJECT WHERE SUBJECTID = :id")
     suspend fun getSubjectById(id: Int): Subject

@@ -1,6 +1,8 @@
 package com.example.studysmart.util
 
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color.Companion.Red
 import com.example.studysmart.presentation.theme.Green
 import com.example.studysmart.presentation.theme.Orange
 import java.time.Instant
@@ -9,13 +11,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 enum class Priority(val title: String, val color: Color, val value: Int) {
-    LOW("Low", Green, 0),
-    MEDIUM("Medium", Orange, 1),
-    HIGH("High", Color.Red, 2);
+    LOW(title = "Low", color = Green, value = 0),
+    MEDIUM(title = "Medium", color = Orange, value = 1),
+    HIGH(title = "High", color = Red, value = 2);
 
     companion object {
-        fun fromInt(value: Int) =
-            entries.firstOrNull() { it.value == value } ?: MEDIUM
+        fun fromInt(value: Int) = entries.firstOrNull { it.value == value } ?: MEDIUM
     }
 }
 
@@ -31,5 +32,16 @@ fun Long?.toActualDateInString(): String {
 
 fun Long.toHours(): Float {
     val hour = this.toFloat() / 3600f
-    return  "%.2f".format(hour).toFloat()
+    return "%.2f".format(hour).toFloat()
 }
+
+sealed class SnackBarEvent {
+
+    data class ShowSnackBar(
+        val msg: String,
+        val duration: SnackbarDuration = SnackbarDuration.Short,
+    ) : SnackBarEvent()
+
+    data object NavigateUp: SnackBarEvent()
+}
+

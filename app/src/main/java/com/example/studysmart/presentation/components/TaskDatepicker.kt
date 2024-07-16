@@ -18,10 +18,11 @@ fun TaskDatePicker(
     isOpened: Boolean,
     onConfirmButtonClick: () -> Unit,
     onDismissButtonClick: () -> Unit,
+    onDismissRequest: () -> Unit,
 ) {
     if (isOpened)
         DatePickerDialog(
-            onDismissRequest = { /*TODO*/ },
+            onDismissRequest = onDismissRequest,
             confirmButton = {
                 TextButton(
                     onClick = onConfirmButtonClick

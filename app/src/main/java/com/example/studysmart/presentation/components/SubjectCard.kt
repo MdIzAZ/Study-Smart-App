@@ -43,7 +43,7 @@ fun SubjectCard(
                 contentDescription = subjectName,
                 modifier = Modifier.size(80.dp)
             )
-            Text(text = subjectName, style = MaterialTheme.typography.headlineMedium)
+            Text(text = subjectName, style = MaterialTheme.typography.headlineMedium, maxLines = 1)
         }
     }
 }
